@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus Drive | Encrypted</title>
+  <meta name="theme-color" content="#5865f2" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-sidebar: #1e1f22; --bg-main: #313338; --bg-card: #2b2d31; --bg-input: #383a40;
+      --bg-hover: #35373c; --bg-active: #404249; --accent: #5865f2; --accent-d: #4752c4;
+      --accent-l: #7289da; --text: #dbdee1; --text-muted: #80848e; --radius: 8px; --online: #23a55a;
+    }
+    body { background: var(--bg-main); color: var(--text); font-family: "Inter", sans-serif; height: 100vh; overflow: hidden; display: flex; }
+
+    /* ── Auth Screen ────────────────────────────── */
+    #auth-screen { position: fixed; inset: 0; background: var(--bg-main); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .auth-card { background: var(--bg-card); padding: 32px; border-radius: 8px; width: 100%; max-width: 440px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .auth-title { font-size: 28px; font-weight: 800; text-align: center; margin-bottom: 8px; color: var(--accent-l); letter-spacing: -1px; }
+    .auth-subtitle { text-align: center; color: var(--text-muted); margin-bottom: 24px; font-size: 14px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; color: var(--text-muted); }
+    .form-input { width: 100%; background: var(--bg-sidebar); border: 1px solid transparent; padding: 12px; border-radius: 4px; color: #fff; outline: none; transition: border 0.2s; }
+    .form-input:focus { border-color: var(--accent); }
+    .btn-auth { width: 100%; background: var(--accent); color: #fff; border: none; padding: 14px; border-radius: 4px; font-weight: 600; cursor: pointer; margin-top: 8px; font-size: 15px; }
+    .btn-auth:hover { background: var(--accent-d); }
+    .auth-toggle { text-align: center; margin-top: 16px; font-size: 13px; color: var(--accent-l); cursor: pointer; text-decoration: underline; }
+
+    /* ── Main Layout ────────────────────────────── */
+    #sidebar { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
+    .brand { padding: 24px 20px; font-size: 22px; font-weight: 900; color: var(--accent-l); display: flex; align-items: center; gap: 10px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; margin: 0 8px 2px; border-radius: var(--radius); cursor: pointer; color: var(--text-muted); transition: 0.15s; }
+    .nav-item:hover, .nav-item.active { background: var(--bg-active); color: var(--text); }
+    
+    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    header { height: 64px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(0,0,0,0.2); background: var(--bg-main); }
+    .search-box { background: var(--bg-input); border-radius: var(--radius); padding: 8px 16px; width: 400px; display: flex; align-items: center; gap: 10px; }
+    .search-box input { background: transparent; border: none; color: var(--text); outline: none; width: 100%; }
+
+    .content-area { flex: 1; padding: 24px; overflow-y: auto; }
+    .section-header { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px; }
+    
+    .files-list { display: flex; flex-direction: column; gap: 4px; }
+    .file-row { display: flex; align-items: center; padding: 10px 16px; border-radius: var(--radius); cursor: pointer; transition: 0.1s; border-bottom: 1px solid rgba(255,255,255,0.02); }
+    .file-row:hover { background: var(--bg-hover); }
+    .file-icon { font-size: 24px; margin-right: 16px; width: 32px; text-align: center; }
+    .file-name { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; }
+    .file-date { width: 140px; color: var(--text-muted); font-size: 13px; }
+    .file-size { width: 100px; color: var(--text-muted); font-size: 13px; text-align: right; margin-right: 12px; }
+
+    .file-actions { display: flex; gap: 8px; opacity: 0; transition: 0.2s; }
+    .file-row:hover .file-actions { opacity: 1; }
+    .action-btn { padding: 4px; cursor: pointer; border-radius: 4px; filter: grayscale(1); transition: 0.2s; }
+    .action-btn:hover { filter: grayscale(0); background: var(--bg-active); }
+    .action-btn.active-star { filter: grayscale(0); }
+
+    /* ── Upload Status ──────────────────────────── */
+    #upload-toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg-sidebar); border-radius: 8px; width: 320px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: none; overflow: hidden; border: 1px solid var(--bg-active); }
+    .toast-header { background: var(--bg-active); padding: 12px 16px; font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; }
+    .progress-track { height: 6px; background: var(--bg-input); margin-top: 8px; border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--online); width: 0%; transition: width 0.3s; }
+
+    /* ── E2EE Badge ────────────────────────────── */
+    .e2ee-shield { color: #23a55a; font-size: 11px; font-weight: 700; background: rgba(35, 165, 90, 0.1); padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- Auth Screen -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-title">Nexus Drive</div>
+      <div class="auth-subtitle" id="auth-sub">End-to-End Encrypted Storage</div>
+      <div class="form-group">
+        <label class="form-label">Server Address</label>
+        <input type="text" id="auth-server" class="form-input" placeholder="e.g. your-tunnel.trycloudflare.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" id="auth-user" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password (Used for Encryption)</label>
+        <input type="password" id="auth-pass" class="form-input">
+      </div>
+      <button class="btn-auth" id="btn-login">Login</button>
+      <div class="auth-toggle" id="auth-toggle">Need an account? Register</div>
+      <div style="margin-top: 15px; font-size: 11px; color: var(--text-muted); text-align: center;">
+        🔒 All files are encrypted locally before upload.
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="brand">⬡ Nexus</div>
+    <div class="nav-item active" data-view="all">📁 My Drive</div>
+    <div class="nav-item" data-view="recent">🕒 Recent</div>
+    <div class="nav-item" data-view="starred">⭐ Starred</div>
+    <div class="nav-item" data-view="trash">🗑️ Trash</div>
+    
+    <div style="margin-top: auto; padding: 20px;">
+      <div class="e2ee-shield">🛡️ E2EE Enabled</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; margin-top: 12px;">Logged in as:</div>
+      <div id="user-display" style="font-weight: 700; color: var(--accent-l);">Not connected</div>
+      <div id="logout" style="font-size: 11px; margin-top: 6px; cursor: pointer; color: #f23f42; text-decoration: underline;">Disconnect</div>
+    </div>
+  </aside>
+
+  <!-- Main View -->
+  <main id="main">
+    <header>
+      <div class="search-box"><span>🔍</span><input type="text" id="search-input" placeholder="Search your files..."></div>
+      <button class="btn-auth" style="width: auto; padding: 8px 24px;" onclick="document.getElementById('file-input').click()">➕ Upload</button>
+    </header>
+    
+    <div class="content-area">
+      <div class="section-header" id="current-view-title">My Drive</div>
+      <div class="files-list" id="files-list">
+        <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+          Connect to your server to view your files.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Upload Progress -->
+  <div id="upload-toast">
+    <div class="toast-header"><span>Encrypting & Syncing...</span></div>
+    <div style="padding: 16px;">
+      <div style="font-size: 13px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="upload-filename">file.png</div>
+      <div class="progress-track"><div class="progress-fill" id="upload-bar"></div></div>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" hidden>
+
+  <script>
+    let ws = null;
+    let currentUser = null;
+    let isRegistering = false;
+    let driveFiles = [];
+    let currentView = 'all';
+    let encryptionKey = null; // Key derived from password
+
+    const authToggle = document.getElementById('auth-toggle');
+    const authSub = document.getElementById('auth-sub');
+    const btnLogin = document.getElementById('btn-login');
+    const serverInput = document.getElementById('auth-server');
+    const filesList = document.getElementById('files-list');
+    const viewTitle = document.getElementById('current-view-title');
+    const searchInput = document.getElementById('search-input');
+
+    serverInput.value = localStorage.getItem('nexus_last_server') || "";
+
+    authToggle.onclick = () => {
+      isRegistering = !isRegistering;
+      authSub.innerText = isRegistering ? "Create a new Nexus Drive account" : "End-to-End Encrypted Storage";
+      btnLogin.innerText = isRegistering ? "Register" : "Login";
+      authToggle.innerText = isRegistering ? "Already have an account? Login" : "Need an account? Register";
+    };
+
+    // Navigation logic
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.onclick = () => {
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        currentView = item.dataset.view;
+        viewTitle.innerText = item.innerText.replace(/[^a-zA-Z\s]/g, '').trim();
+        renderFiles(driveFiles);
+      };
+    });
+
+    btnLogin.onclick = async () => {
+      let url = serverInput.value.trim();
+      const user = document.getElementById('auth-user').value.trim();
+      const pass = document.getElementById('auth-pass').value.trim();
+
+      if (!url || !user || !pass) return alert("Please fill in all fields.");
+      if (!url.startsWith('ws')) url = "wss://" + url;
+
+      // 1. Derive encryption key from password locally
+      // We use the password as the seed for our E2EE
+      try {
+        btnLogin.innerText = "Deriving key...";
+        encryptionKey = await deriveKey(pass, user);
+      } catch (e) {
+        console.error(e);
+        return alert("Failed to initialize encryption.");
+      }
+
+      localStorage.setItem('nexus_last_server', serverInput.value);
+      connect(url, user, pass, isRegistering ? 'register' : 'login');
+    };
+
+    function connect(url, username, password, type) {
+      btnLogin.innerText = "Connecting...";
+      btnLogin.disabled = true;
+
+      try {
+        ws = new WebSocket(url);
+      } catch(e) {
+        alert("Invalid URL format");
+        resetLoginButton();
+        return;
+      }
+      
+      ws.onopen = () => ws.send(JSON.stringify({ type, username, password }));
+
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'auth-success') {
+          currentUser = msg.username;
+          document.getElementById('auth-screen').style.display = 'none';
+          document.getElementById('user-display').innerText = currentUser;
+          ws.send(JSON.stringify({ type: 'get-drive' }));
+        } else if (msg.type === 'auth-error') {
+          alert("Error: " + msg.message);
+          ws.close();
+          resetLoginButton();
+        } else if (msg.type === 'drive-data') {
+          driveFiles = msg.files || [];
+          renderFiles(driveFiles);
+        } else if (msg.type === 'file-content') {
+          handleDownload(msg.data, msg.name);
+        }
+      };
+
+      ws.onerror = () => { alert("Connection failed."); resetLoginButton(); };
+    }
+
+    function resetLoginButton() {
+      btnLogin.innerText = isRegistering ? "Register" : "Login";
+      btnLogin.disabled = false;
+    }
+
+    // ── Encryption Logic ───────────────────────────────
+    
+    async function deriveKey(password, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: enc.encode(salt),
+          iterations: 100000,
+          hash: "SHA-256",
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    async function encryptData(dataArrayBuffer) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        encryptionKey,
+        dataArrayBuffer
+      );
+      // Combine IV + Ciphertext for storage
+      const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+      combined.set(iv);
+      combined.set(new Uint8Array(ciphertext), iv.length);
+      return combined;
+    }
+
+    async function decryptData(combinedBuffer) {
+      const iv = combinedBuffer.slice(0, 12);
+      const data = combinedBuffer.slice(12);
+      return crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: iv },
+        encryptionKey,
+        data
+      );
+    }
+
+    // ── File Management ────────────────────────────────
+    
+    function renderFiles(files) {
+      let filtered = files;
+      const q = searchInput.value.toLowerCase();
+
+      if (currentView === 'all') filtered = files.filter(f => !f.trashed);
+      else if (currentView === 'starred') filtered = files.filter(f => f.starred && !f.trashed);
+      else if (currentView === 'trash') filtered = files.filter(f => f.trashed);
+      else if (currentView === 'recent') filtered = [...files].filter(f => !f.trashed).sort((a,b) => b.timestamp - a.timestamp);
+
+      if (q) filtered = filtered.filter(f => f.name.toLowerCase().includes(q));
+
+      if (filtered.length === 0) {
+        filesList.innerHTML = `<div style="padding:40px; text-align:center; color:var(--text-muted);">No files found in this view.</div>`;
+        return;
+      }
+
+      filesList.innerHTML = filtered.map(f => `
+        <div class="file-row" onclick="openFile('${f.name}')">
+          <span class="file-icon">${getFileIcon(f.name)}</span>
+          <span class="file-name">${f.name}</span>
+          <span class="file-date">${new Date(f.timestamp).toLocaleDateString()}</span>
+          <span class="file-size">${formatBytes(f.size)}</span>
+          <div class="file-actions" onclick="event.stopPropagation()">
+            <span class="action-btn ${f.starred ? 'active-star' : ''}" onclick="toggleStar('${f.name}')">${f.starred ? '⭐' : '☆'}</span>
+            <span class="action-btn" onclick="handleTrash('${f.name}', ${f.trashed})" title="${f.trashed ? 'Delete' : 'Trash'}">${f.trashed ? '❌' : '🗑️'}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openFile(name) {
+      ws.send(JSON.stringify({ type: 'download-file', name }));
+    }
+
+    function toggleStar(name) {
+      ws.send(JSON.stringify({ type: 'toggle-star', name }));
+    }
+
+    function handleTrash(name, isTrashed) {
+      if (isTrashed) {
+        if (confirm(`Delete ${name} permanently?`)) ws.send(JSON.stringify({ type: 'delete-file', name }));
+      } else {
+        ws.send(JSON.stringify({ type: 'trash-file', name }));
+      }
+    }
+
+    async function handleDownload(base64, name) {
+      try {
+        const bin = atob(base64);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        
+        // Decrypt locally
+        const decryptedBuffer = await decryptData(arr);
+        const url = URL.createObjectURL(new Blob([decryptedBuffer]));
+        const a = document.createElement('a');
+        a.href = url; a.download = name; a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error(e);
+        alert("Decryption failed. Was this file encrypted with a different password?");
+      }
+    }
+
+    // ── Upload ────────────────────────────────────────
+    const fileInput = document.getElementById('file-input');
+    const uploadToast = document.getElementById('upload-toast');
+    const uploadBar = document.getElementById('upload-bar');
+
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file || !ws) return;
+
+      const reader = new FileReader();
+      uploadToast.style.display = 'block';
+      document.getElementById('upload-filename').innerText = file.name;
+      uploadBar.style.width = '10%';
+
+      reader.onload = async (event) => {
+        uploadBar.style.width = '40%';
+        try {
+          // Encrypt file before sending
+          const encryptedBytes = await encryptData(event.target.result);
+          
+          uploadBar.style.width = '100%';
+
+          // Convert encrypted bytes to base64 for transmission
+          let binary = '';
+          const bytes = new Uint8Array(encryptedBytes);
+          for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+          const base64Data = btoa(binary);
+
+          ws.send(JSON.stringify({
+            type: 'upload-file',
+            name: file.name,
+            size: file.size,
+            data: base64Data
+          }));
+          
+          setTimeout(() => { uploadToast.style.display = 'none'; }, 1000);
+        } catch (err) {
+          console.error(err);
+          alert("Encryption failed during upload.");
+          uploadToast.style.display = 'none';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    };
+
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + ['B', 'KB', 'MB', 'GB'][i];
+    }
+
+    function getFileIcon(name) {
+      const ext = name.split('.').pop().toLowerCase();
+      if (['jpg','jpeg','png','gif','webp'].includes(ext)) return '🖼️';
+      if (['mp4','mov','webm'].includes(ext)) return '🎬';
+      if (['pdf'].includes(ext)) return '📄';
+      if (['zip','rar','7z'].includes(ext)) return '📦';
+      if (['mp3','wav'].includes(ext)) return '🎵';
+      return '📄';
+    }
+
+    searchInput.oninput = () => renderFiles(driveFiles);
+    document.getElementById('logout').onclick = () => { if(ws) ws.close(); location.reload(); };
+  </script>
+</body>
+</html>
